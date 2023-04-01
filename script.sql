@@ -52,5 +52,9 @@ ON CONFLICT DO NOTHING;
 SELECT pgr_createTopology('calculation_table', 0.001, 'the_geom', 'id');
 
 select pgr_dijkstra('SELECT * FROM calculation_table', 1, 2);
--- select pgr_astar('SELECT * FROM calculation_table');
-DROP TABLE calculation_table;
+SELECT seq, id1 AS node, id2 AS edge, cost
+        FROM pgr_astar(
+                'SELECT * FROM calculation_table',
+                1, 10000, false, false
+        );DROP TABLE calculation_table;
+DROP TABLE calculation_table_vertices_pgrl
