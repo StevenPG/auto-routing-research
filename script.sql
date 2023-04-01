@@ -1,15 +1,18 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "postgis";
+CREATE EXTENSION IF NOT EXISTS "pgrouting";
 
 CREATE TABLE IF NOT EXISTS calculation_table (
-    id            UUID NOT NULL DEFAULT uuid_generate_v4() PRIMARY KEY,
-    source        UUID NOT NULL DEFAULT uuid_generate_v4(),
-    target        UUID NOT NULL DEFAULT uuid_generate_v4(),
-    cost          int NOT NULL,
-    reverse_cost  int NOT NULL,
-    x1            float NOT NULL,
-    y1            float NOT NULL,
-    x2            float NOT NULL,
-    y2            float NOT NULL,
+  	id              SERIAL PRIMARY KEY,
+    source        integer NULL,
+    target        integer NULL,
+    cost          integer NOT NULL,
+    reverse_cost  integer NOT NULL,
+	the_geom geometry(LineString,27700) NOT NULL,
+    x1            float NULL,
+    y1            float NULL,
+    x2            float NULL,
+    y2            float NULL,
     UNIQUE (x1, y1, x2, y2)
 );
 
@@ -20,7 +23,7 @@ CREATE TABLE IF NOT EXISTS calculation_table (
 			WITH area as
 			(
 				SELECT ST_Transform(
-					ST_GeomFromGeoJSON('{"coordinates": [[[-75.68902456859064,40.0340143735292],[-75.68902456859064,39.927747431953776],[-75.53255688544492,39.927747431953776],[-75.53255688544492,40.0340143735292],[-75.68902456859064,40.0340143735292]]],"type": "Polygon"}'),
+					ST_GeomFromGeoJSON('{"coordinates": [[[-75.62733363468617,39.978575910519226],[-75.62733363468617,39.947659199734915],[-75.58142614907263,39.947659199734915],[-75.58142614907263,39.978575910519226],[-75.62733363468617,39.978575910519226]]],"type": "Polygon"}'),
 					4326
 				) as geometry
 			)
@@ -36,24 +39,18 @@ CREATE TABLE IF NOT EXISTS calculation_table (
 		FROM sample
 )
 INSERT INTO calculation_table (
-    cost, reverse_cost, x1, y1, x2, y2
-) SELECT 
--- (
-    1, 1, ST_X(points.point_one), ST_Y(points.point_one), ST_X(points.point_two), ST_Y(points.point_two)
--- )
--- ,
--- (
---     1, 1, ST_X(points.point_two), ST_Y(points.point_two), ST_X(points.point_three), ST_Y(points.point_three)
--- ),
--- (
---     1, 1, ST_X(points.point_three), ST_Y(points.point_three), ST_X(points.point_four), ST_Y(points.point_four)
--- ),
--- (
---     1, 1, ST_X(points.point_four), ST_Y(points.point_four), ST_X(points.point_one), ST_Y(points.point_one)
--- )
-FROM
-    points;
+    cost, reverse_cost, the_geom
+) SELECT 1, 1, ST_MakeLine(points.point_one, points.point_two) FROM points
+	UNION ALL
+	SELECT 1, 1, ST_MakeLine(points.point_two, points.point_three) FROM points
+	UNION ALL
+	SELECT 1, 1, ST_MakeLine(points.point_three, points.point_four) FROM points
+	UNION ALL
+	SELECT 1, 1, ST_MakeLine(points.point_four, points.point_one) FROM points
+ON CONFLICT DO NOTHING;
 
-SELECT count(*) FROM calculation_table;
+SELECT pgr_createTopology('calculation_table', 0.001, 'the_geom', 'id');
 
+select pgr_dijkstra('SELECT * FROM calculation_table', 1, 2);
+-- select pgr_astar('SELECT * FROM calculation_table');
 DROP TABLE calculation_table;
